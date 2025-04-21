@@ -55,3 +55,4 @@ def insert_vectors(chunks, batch_size=50):
         print(f"Inserted {len(vectors)} remaining vectors into Pinecone.")
 
 insert_vectors(chunks, batch_size=50)
+#yo chat

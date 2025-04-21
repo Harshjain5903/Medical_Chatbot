@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Medical Chatbot</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}"/>
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <!-- Optional: Bootstrap JS -->
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+    <div class="container-fluid h-100">
+        <div class="row justify-content-center h-100">
+            <div class="col-md-8 col-xl-6 chat">
+                <div class="card">
+                    <div class="card-header msg_head">
+                        <div class="d-flex bd-highlight">
+                            <div class="img_cont">
+                                <!-- THIS IS THE LINE WE CHANGED -->
+                                <img src="https://cdn-icons-png.flaticon.com/512/2966/2966303.png" class="rounded-circle user_img">
+                                <span class="online_icon"></span>
+                            </div>
+                            <div class="user_info">
+                                <span>Medical Chatbot</span>
+                                <p>Ask me anything based on the provided medical data!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="messageFormeight" class="card-body msg_card_body"></div>
+                    <div class="card-footer">
+                        <form id="messageArea" class="input-group">
+                            <input type="text" id="text" name="msg" placeholder="Type your message..." autocomplete="off" class="form-control type_msg" required/>
+                            <div class="input-group-append">
+                                <button type="submit" id="send" class="input-group-text send_btn"><i class="fas fa-location-arrow"></i></button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function formatTime(date) {
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            return hour + ":" + minute;
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                const chatBox = $("#messageFormeight");
+                chatBox.scrollTop(chatBox[0].scrollHeight);
+            }, 50);
+        }
+
+        $(document).ready(function() {
+            // THIS IS THE JAVASCRIPT VARIABLE WE CHANGED
+            const botImg = "https://cdn-icons-png.flaticon.com/512/2966/2966303.png";
+            const userImg = "https://i.ibb.co/d5b84Xw/Untitled-design.png"; // This is your user avatar
+
+            const initialBotMsg = "Hello! I am your Medical Chatbot. How can I help you today based on my knowledge base?";
+            const initDate = new Date();
+            const initStrTime = formatTime(initDate);
+            var initBotHtml = `
+                <div class="d-flex justify-content-start mb-4">
+                    <div class="img_cont_msg">
+                        <img src="${botImg}" class="rounded-circle user_img_msg">
+                    </div>
+                    <div class="msg_cotainer">
+                        ${initialBotMsg}
+                        <span class="msg_time">${initStrTime}</span>
+                    </div>
+                </div>`;
+            $("#messageFormeight").append($.parseHTML(initBotHtml));
+            scrollToBottom();
+
+            $("#messageArea").on("submit", function(event) {
+                event.preventDefault();
+                const currentDate = new Date();
+                const currentTime = formatTime(currentDate);
+                var userMessage = $("#text").val().trim();
+                if (userMessage === "") return;
+
+                var userHtml = `
+                    <div class="d-flex justify-content-end mb-4">
+                        <div class="msg_cotainer_send">
+                            ${userMessage}
+                            <span class="msg_time_send">${currentTime}</span>
+                        </div>
+                        <div class="img_cont_msg">
+                            <img src="${userImg}" class="rounded-circle user_img_msg">
+                        </div>
+                    </div>`;
+                $("#messageFormeight").append(userHtml);
+                $("#text").val("");
+                scrollToBottom();
+
+                var typingHtml = `
+                    <div class="d-flex justify-content-start mb-4" id="typingIndicator">
+                        <div class="img_cont_msg">
+                            <img src="${botImg}" class="rounded-circle user_img_msg">
+                        </div>
+                        <div class="msg_cotainer">
+                            <i>Typing... (This may take several minutes)</i>
+                            <span class="msg_time">${currentTime}</span>
+                        </div>
+                    </div>`;
+                $("#messageFormeight").append($.parseHTML(typingHtml));
+                scrollToBottom();
+
+                $.ajax({
+                    data: { msg: userMessage },
+                    type: "POST",
+                    url: "/get",
+                    dataType: "json", // Expecting JSON response
+                    timeout: 900000 // 15 minutes timeout
+                })
+                .done(function(data) {
+                    $("#typingIndicator").remove();
+                    // Check if data exists and has a 'response' property
+                    if (data && data.response && data.response.trim() !== "") {
+                        // Sanitize the response before inserting and replace newlines with <br>
+                        var botResponse = $('<div>').text(data.response).html().replace(/\n/g, '<br>');
+                        var botHtml = `
+                            <div class="d-flex justify-content-start mb-4">
+                                <div class="img_cont_msg">
+                                    <img src="${botImg}" class="rounded-circle user_img_msg">
+                                </div>
+                                <div class="msg_cotainer">
+                                    ${botResponse}
+                                    <span class="msg_time">${currentTime}</span>
+                                </div>
+                            </div>`;
+                        $("#messageFormeight").append($.parseHTML(botHtml));
+                    } else {
+                        // Handle cases where response might be empty or missing
+                        var errorMsg = data && data.response === "" ? "I found some information, but couldn't formulate a specific answer." : "Sorry, I received an empty or invalid response from the server.";
+                         var errorHtml = `
+                            <div class="d-flex justify-content-start mb-4">
+                                <div class="img_cont_msg">
+                                    <img src="${botImg}" class="rounded-circle user_img_msg">
+                                </div>
+                                <div class="msg_cotainer">
+                                    ${errorMsg}
+                                    <span class="msg_time">${currentTime}</span>
+                                </div>
+                            </div>`;
+                        $("#messageFormeight").append($.parseHTML(errorHtml));
+                    }
+                })
+                .fail(function(jqXHR, textStatus, errorThrown) {
+                    // Remove typing indicator on failure too
+                    $("#typingIndicator").remove();
+                    var errorText = "Sorry, there was an error communicating with the server.";
+                    if (textStatus === "timeout") {
+                        errorText = "Sorry, the request timed out (waited 15 minutes). The server is taking too long to process.";
+                    } else if (jqXHR.status >= 500) {
+                         errorText = "Sorry, an internal server error occurred. Please check the server logs.";
+                    } else if (jqXHR.status === 0) {
+                        errorText = "Cannot connect to the server. Is it running?";
+                    }
+                    // Display error message in chat
+                    var errorHtml = `
+                        <div class="d-flex justify-content-start mb-4">
+                            <div class="img_cont_msg">
+                                <img src="${botImg}" class="rounded-circle user_img_msg">
+                            </div>
+                            <div class="msg_cotainer">
+                                ${errorText}
+                                <span class="msg_time">${currentTime}</span>
+                            </div>
+                        </div>`;
+                    $("#messageFormeight").append($.parseHTML(errorHtml));
+                })
+                .always(function() {
+                    // Ensure scrolling happens even after errors
+                    scrollToBottom();
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
